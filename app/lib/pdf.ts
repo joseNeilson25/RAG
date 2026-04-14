@@ -1,8 +1,6 @@
-import * as pdf from "pdf-parse";
+const pdf = require("pdf-parse");
 
 export async function extractTextFromPdf(buffer: Buffer) {
-  const parser = new pdf.PDFParse({ data: buffer });
-  const result = await parser.getText();
-
-  return result.text ?? "";
+  const data = await pdf(buffer);
+  return data.text || "";
 }
