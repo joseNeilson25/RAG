@@ -32,10 +32,10 @@ export async function POST(req: Request) {
     const context = results
       .map((doc, i) => {
         return `Trecho ${i + 1}
-Fonte: ${doc.metadata.source}
-Chunk: ${doc.metadata.chunkIndex}
+        Fonte: ${doc.metadata.source}
+        Chunk: ${doc.metadata.chunkIndex}
 
-${doc.pageContent}`;
+        ${doc.pageContent}`;
       })
       .join("\n\n---\n\n");
 

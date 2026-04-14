@@ -1,65 +1,152 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+
+export default function HomePage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [question, setQuestion] = useState("");
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState<{ 
+    source: string; 
+    chunkIndex: number;
+    preview: string;
+  }[]>([]);
+  const [loadingUpload, setLoadingUpload] = useState(false);
+  const [loadingAsk, setLoadingAsk] = useState(false);
+
+  async function handleUpload() {
+    if (!file) return;
+
+    try {
+      setLoadingUpload(true);
+      setUploadMessage("");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setUploadMessage(data.error || "Erro no upload.");
+        return;
+      }
+
+      setUploadMessage(
+        `PDF "${data.fileName}" indexado com sucesso. Chunks: ${data.chunks}`
+      );
+    } catch {
+      setUploadMessage("Erro ao enviar arquivo.");
+    } finally {
+      setLoadingUpload(false);
+    }
+  }
+
+  async function handleAsk() {
+    if (!question.trim()) return;
+
+    try {
+      setLoadingAsk(true);
+      setAnswer("");
+      setSources([]);
+
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAnswer(data.error || "Erro ao perguntar.");
+        return;
+      }
+
+      setAnswer(data.answer);
+      setSources(data.sources || []);
+    } catch {
+      setAnswer("Erro ao consultar.");
+    } finally {
+      setLoadingAsk(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="min-h-screen p-8 max-w-3xl mx-auto space-y-8">
+      <section className="space-y-4">
+        <h1 className="text-3xl font-bold">RAG MVP</h1>
+
+        <div className="space-y-3 border rounded-2xl p-4">
+          <input
+            type="file"
+            accept="application/pdf"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+
+          <button
+            onClick={handleUpload}
+            disabled={!file || loadingUpload}
+            className="px-4 py-2 rounded-xl border ml-8"
+          >
+            {loadingUpload ? "Enviando..." : "Enviar PDF"}
+          </button>
+
+          {uploadMessage && <p>{uploadMessage}</p>}
+        </div>
+      </section>
+
+      <section className="space-y-4 border rounded-2xl p-4">
+        <h2 className="text-xl font-semibold">Perguntar ao PDF</h2>
+
+        <textarea
+          className="w-full border rounded-xl p-3 min-h-32"
+          placeholder="Faça uma pergunta sobre o conteúdo do PDF..."
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <button
+          onClick={handleAsk}
+          disabled={loadingAsk}
+          className="px-4 py-2 rounded-xl border"
+        >
+          {loadingAsk ? "Consultando..." : "Perguntar"}
+        </button>
+
+        {answer && (
+          <div className="space-y-3">
+            <div className="border rounded-xl p-4">
+              <h3 className="font-semibold mb-2">Resposta</h3>
+              <p>{String(answer)}</p>
+            </div>
+
+            {!!sources.length && (
+              <div className="border rounded-xl p-4">
+                <h3 className="font-semibold mb-2">Fontes usadas</h3>
+
+                {sources.map((item, index) => (
+                  <div key={index} className="mb-3 p-2 border rounded">
+                    <p className="text-sm font-bold">
+                      {item.source} (chunk {item.chunkIndex})
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {item.preview}...
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+    </main>
   );
 }
